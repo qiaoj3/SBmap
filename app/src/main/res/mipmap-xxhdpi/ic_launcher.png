@@ -1,0 +1,160 @@
+package edu.illinois.cs.cs125.spring2019.mp4.lib;
+
+import org.apache.commons.collections4.CollectionUtils;
+import org.junit.Assert;
+import org.junit.Test;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Test suite for the organic molecule analysis tests.
+ * <p>
+ * The provided test suite is correct and complete. You should not need to modify it.
+ * However, you should understand it.
+ *
+ * @see <a href="https://cs125.cs.illinois.edu/MP/4/">MP4 Documentation</a>
+ */
+public class MoleculeAnalyzerTest {
+
+    /** Timeout for analysis tests. Reference solution takes 1-40 ms from cold start. */
+    private static final int ANALYZE_TEST_TIMEOUT = 400;
+
+    /** Timeout for molecule naming tests. Reference solution takes 1-150 ms from warm start. */
+    private static final int NAME_TEST_TIMEOUT = 900;
+
+    /** Timeout for helper function tests. */
+    private static final int HELPER_TEST_TIMEOUT = 400;
+
+    /** Tolerance for differences in molecular weight. */
+    private static final double MW_COMPARE_DELTA = 0.005;
+
+    /** Test molecular weight calculation. */
+    @Test(timeout = ANALYZE_TEST_TIMEOUT)
+    public void testMolecularWeight() {
+        for (MoleculeAnalysisTestInput input : analysisTestCases) {
+            MoleculeAnalyzer analyzer = new MoleculeAnalyzer(input.molecule.build());
+            Assert.assertEquals(input.molecularWeight, analyzer.getMolecularWeight(), MW_COMPARE_DELTA);
+        }
+    }
+
+    /** Test determining whether there are any charged atoms. */
+    @Test(timeout = ANALYZE_TEST_TIMEOUT)
+    public void testHasCharged() {
+        for (MoleculeAnalysisTestInput input : analysisTestCases) {
+            MoleculeAnalyzer analyzer = new MoleculeAnalyzer(input.molecule.build());
+            Assert.assertEquals(input.hasChargedAtom, analyzer.hasChargedAtoms());
+        }
+    }
+
+    /** Test naming straight-chain alkanes with no substituents. */
+    @Test(timeout = NAME_TEST_TIMEOUT)
+    public void testNamingSimpleStraight() {
+        runNamingTest(MoleculeNamingTestDifficulty.LINEAR_ALKANE);
+    }
+
+    /** Test naming cyclic alkanes with no substituents. */
+    @Test(timeout = NAME_TEST_TIMEOUT)
+    public void testNamingSimpleCyclic() {
+        runNamingTest(MoleculeNamingTestDifficulty.CYCLIC_ALKANE);
+    }
+
+    /** Test naming cyclic alkanes with one non-suffix-affecting substituent. */
+    @Test(timeout = NAME_TEST_TIMEOUT)
+    public void testNamingOneSubstituentCyclic() {
+        runNamingTest(MoleculeNamingTestDifficulty.MONOSUBSTITUTED_RING);
+    }
+
+    /** Test naming linear alkanes with one non-suffix affecting substituent. Alkyl substituents cause branching. */
+    @Test(timeout = NAME_TEST_TIMEOUT)
+    public void testNamingOneSubstituentLinear() {
+        runNamingTest(MoleculeNamingTestDifficulty.SINGLE_SUBSTITUENT_LINEAR);
+    }
+
+    /** EXTRA CREDIT: Test naming molecules with multiple substituents. */
+    @Test(timeout = NAME_TEST_TIMEOUT)
+    public void testNamingMultipleSubstituents() {
+        runNamingTest(MoleculeNamingTestDifficulty.MULTIPLE_SUBSTITUENTS);
+    }
+
+    /** EXTRA CREDIT: Test naming complicated molecules with multiple substituents and priority tiebreaks. */
+    @Test(timeout = NAME_TEST_TIMEOUT)
+    public void testNamingPriority() {
+        runNamingTest(MoleculeNamingTestDifficulty.PRIORITY_TIEBREAK);
+    }
+
+    /**
+     * Runs the naming test on the given group of molecules.
+     * @param difficulty The difficulty/group of molecules to name.
+     */
+    private void runNamingTest(final MoleculeNamingTestDifficulty difficulty) {
+        for (MoleculeNamingTestInput input : namingTestCases) {
+            if (input.difficulty == difficulty) {
+                BondedAtom originalStart = input.molecule.build();
+                // Start exploring from somewhere on the backbone
+                runNamingCheck(originalStart, input.validNames);
+                // Start exploring from somewhere else
+                for (BondedAtom neighbor : originalStart) {
+                    runNamingCheck(neighbor, input.validNames);
+                }
+            }
+        }
+    }
+
+    /**
+     * Tests MoleculeAnalyzer's naming starting at a specific atom.
+     * @param startPoint The atom to start exploring from.
+     * @param validNames All valid names for the molecule.
+     */
+    private void runNamingCheck(final BondedAtom startPoint, final String[] validNames) {
+        MoleculeAnalyzer analyzer = new MoleculeAnalyzer(startPoint);
+        String result = analyzer.getIupacName();
+        boolean validAnswer = false;
+        for (String option : validNames) {
+            if (option.equals(result)) {
+                validAnswer = true;
+                break;
+            }
+        }
+        if (!validAnswer) {
+            /*
+            Only do an assertion if we know the answer is wrong.
+            This way, the easiest-to-compute option will be shown in the error message,
+            despite other fancier names being valid too.
+             */
+            Assert.assertEquals(validNames[0], result);
+        }
+    }
+
+    private static class MoleculeAnalysisTestInput {
+        OrganicMoleculeBuilder molecule;
+        double molecularWeight;
+        boolean hasChargedAtom;
+        public MoleculeAnalysisTestInput(final OrganicMoleculeBuilder setMolecule,
+                                         final double setMW, final boolean setCharge) {
+            molecule = setMolecule;
+            molecularWeight = setMW;
+            hasChargedAtom = setCharge;
+        }
+    }
+
+    private enum MoleculeNamingTestDifficulty {
+        LINEAR_ALKANE,
+        CYCLIC_ALKANE,
+        MONOSUBSTITUTED_RING,
+        SINGLE_SUBSTITUENT_LINEAR,
+        MULTIPLE_SUBSTITUENTS,
+        PRIORITY_TIEBREAK
+    }
+
+    private static class MoleculeNamingTestInput {
+        OrganicMoleculeBuilder molecule;
+        String[] validNames;
+        MoleculeNamingTestDifficulty difficulty;
+
+        public MoleculeNamingTestInput(final MoleculeNamingTestDifficulty setDifficulty,
+                                       final OrganicMoleculeBuilder setMolecule, final String... setNames) {
+            molecule = setMolecule;
+            difficulty = setDifficulty;
+            validNames = setNames;
+       
